@@ -1826,17 +1826,18 @@ class VariablesChecker(BaseChecker):
             self._type_annotation_names.append(type_annotation.name)
             return
 
-        if not isinstance(type_annotation, astroid.Subscript):
-            return
+        # Handle subscripts (like List[ABC] or typing.Optional[str])
+        if isinstance(type_annotation, astroid.Subscript):
+            if (
+                isinstance(type_annotation.value, astroid.Attribute)
+                and isinstance(type_annotation.value.expr, astroid.Name)
+                and type_annotation.value.expr.name == TYPING_MODULE
+            ):
+                self._type_annotation_names.append(TYPING_MODULE)
+                return
 
-        if (
-            isinstance(type_annotation.value, astroid.Attribute)
-            and isinstance(type_annotation.value.expr, astroid.Name)
-            and type_annotation.value.expr.name == TYPING_MODULE
-        ):
-            self._type_annotation_names.append(TYPING_MODULE)
-            return
-
+        # For all other cases (including Attribute, Subscript, and complex expressions),
+        # extract all Name nodes recursively
         self._type_annotation_names.extend(
             annotation.name
             for annotation in type_annotation.nodes_of_class(astroid.Name)
@@ -1844,9 +1845,24 @@ class VariablesChecker(BaseChecker):
 
     def _store_type_annotation_names(self, node):
         type_annotation = node.type_annotation
-        if not type_annotation:
-            return
-        self._store_type_annotation_node(node.type_annotation)
+        if type_annotation:
+            self._store_type_annotation_node(node.type_annotation)
+        
+        # Handle type comments on assignment nodes
+        if hasattr(node, 'type_comment') and node.type_comment:
+            if isinstance(node.type_comment, str):
+                # Type comment is a string, need to parse it first
+                try:
+                    # Use astroid to parse the type comment string into an AST node
+                    type_comment_node = astroid.extract_node(node.type_comment)
+                    if type_comment_node:
+                        self._store_type_annotation_node(type_comment_node)
+                except (astroid.AstroidSyntaxError, astroid.AstroidError):
+                    # If parsing fails, silently ignore the type comment
+                    pass
+            else:
+                # Type comment is already an astroid node
+                self._store_type_annotation_node(node.type_comment)
 
     def _check_self_cls_assign(self, node):
         """Check that self/cls don't get assigned"""
