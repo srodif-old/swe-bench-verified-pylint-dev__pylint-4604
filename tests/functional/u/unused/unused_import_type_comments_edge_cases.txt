@@ -1,0 +1,3 @@
+# This file should be empty if the fix works correctly
+# collections should not be flagged as unused since it's used in a type comment
+# sys is used explicitly so should not be flagged as unused

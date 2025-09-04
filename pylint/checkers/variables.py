@@ -1850,7 +1850,19 @@ class VariablesChecker(BaseChecker):
         
         # Handle type comments on assignment nodes
         if hasattr(node, 'type_comment') and node.type_comment:
-            self._store_type_annotation_node(node.type_comment)
+            if isinstance(node.type_comment, str):
+                # Type comment is a string, need to parse it first
+                try:
+                    # Use astroid to parse the type comment string into an AST node
+                    type_comment_node = astroid.extract_node(node.type_comment)
+                    if type_comment_node:
+                        self._store_type_annotation_node(type_comment_node)
+                except (astroid.AstroidSyntaxError, astroid.AstroidError):
+                    # If parsing fails, silently ignore the type comment
+                    pass
+            else:
+                # Type comment is already an astroid node
+                self._store_type_annotation_node(node.type_comment)
 
     def _check_self_cls_assign(self, node):
         """Check that self/cls don't get assigned"""
