@@ -1,0 +1,2 @@
+# This file should be empty if the fix works correctly
+# No unused-import warnings should be reported
